@@ -204,7 +204,17 @@ nav button .nm{font-size:10px;font-weight:700}
           <button onclick="doSearch()">查</button>
         </div>
         <div class="result" id="searchResult">
-          <div class="hint">试试搜「食べる」「好き」「努力」或者「喜欢」</div>
+          <div class="hint">试试搜「食べる」「好き」「努力」，词库没有的会自动在线查</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🌏 整句翻译</h3>
+        <div class="search">
+          <input type="text" id="transInput" placeholder="中日互译，输入一句话…" onkeydown="if(event.key==='Enter')doTranslate()">
+          <button onclick="doTranslate()">译</button>
+        </div>
+        <div class="result" id="transResult">
+          <div class="hint">中译日、日译中都行，自动判断方向</div>
         </div>
       </div>
     </div>
@@ -396,19 +406,72 @@ function checkIn(){
   refreshStreak();toast(`打卡成功！连续 ${ns} 天 🎉`);
 }
 
+/* ============ 在线中转地址 ============ */
+const API="https://nekojp-api.issyoukennmeininarau.workers.dev/";
+
 /* ============ 查词 ============ */
 function doSearch(){
-  const q=document.getElementById('q').value.trim().toLowerCase();
+  const q=document.getElementById('q').value.trim();
   const box=document.getElementById('searchResult');
   if(!q){box.innerHTML='<div class="hint">输入点什么再查哦～</div>';return}
+  const ql=q.toLowerCase();
   const hits=WORDS.filter(w=>
-    w.w.toLowerCase().includes(q)||w.k.includes(q)||w.r.includes(q)||w.m.includes(q));
-  if(!hits.length){
-    box.innerHTML=`<div class="empty-box"><div class="face">🐱💭</div>
-      离线词库里还没有「${escapeHtml(q)}」<br><small>接上 Gemini 后就能查任意词啦</small></div>`;
+    w.w.toLowerCase().includes(ql)||w.k.includes(ql)||w.r.includes(ql)||w.m.includes(ql));
+  if(hits.length){
+    box.innerHTML=hits.slice(0,8).map(cardHtml).join('');
     return;
   }
-  box.innerHTML=hits.slice(0,8).map(cardHtml).join('');
+  // 离线没有 → 问 Gemini
+  onlineSearch(q,box);
+}
+
+async function onlineSearch(q,box){
+  box.innerHTML=`<div class="empty-box"><div class="face">🐱💭</div>小猫正在帮你查「${escapeHtml(q)}」…<br><small>在线查询中，稍等一下</small></div>`;
+  try{
+    const res=await fetch(API,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:"word",text:q})
+    });
+    const data=await res.json();
+    if(!res.ok||data.error){throw new Error(data.error||"查询失败")}
+    const w=data.result;
+    if(w&&w.w){
+      box.innerHTML=cardHtml(w)+`<div class="hint">🌸 由 AI 在线生成，仅供参考</div>`;
+    }else{
+      box.innerHTML=`<div class="empty-box"><div class="face">🐱❓</div>没查到「${escapeHtml(q)}」，换个词试试？</div>`;
+    }
+  }catch(e){
+    box.innerHTML=`<div class="empty-box"><div class="face">🐱💦</div>在线查询失败了<br><small>${escapeHtml(e.message||'请检查网络后重试')}</small></div>`;
+  }
+}
+
+/* ============ 整句翻译 ============ */
+async function doTranslate(){
+  const q=document.getElementById('transInput').value.trim();
+  const box=document.getElementById('transResult');
+  if(!q){box.innerHTML='<div class="hint">输入要翻译的句子～</div>';return}
+  box.innerHTML=`<div class="empty-box"><div class="face">🐱💭</div>翻译中…</div>`;
+  try{
+    const res=await fetch(API,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:"translate",text:q})
+    });
+    const data=await res.json();
+    if(!res.ok||data.error){throw new Error(data.error||"翻译失败")}
+    const r=data.result;
+    box.innerHTML=`<div class="wordcard">
+      <div class="mean" style="font-size:14px;color:var(--ink-soft)">原文</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:12px">${escapeHtml(r.src||q)}</div>
+      <div class="mean" style="font-size:14px;color:var(--ink-soft)">译文</div>
+      <div style="font-size:20px;font-weight:800;color:var(--pink-deep)">${r.translation||''}</div>
+      ${r.kana?`<div class="exkana" style="margin-top:4px">${r.kana}</div>`:''}
+      ${r.note?`<div class="scene" style="margin-top:12px">💡 ${r.note}</div>`:''}
+    </div><div class="hint">🌸 由 AI 在线翻译，仅供参考</div>`;
+  }catch(e){
+    box.innerHTML=`<div class="empty-box"><div class="face">🐱💦</div>翻译失败了<br><small>${escapeHtml(e.message||'请检查网络后重试')}</small></div>`;
+  }
 }
 function cardHtml(w){
   const exHtml=(w.ex||[]).map(e=>`
