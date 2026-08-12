@@ -510,18 +510,57 @@ function cardHtml(w){
 }
 function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-/* ============ 出题（在线，Gemini生成）============ */
+/* ============ 出题（本地题库 + Gemini分批补充）============ */
 const LEVELS=['N5','N4','N3','N2','N1'];
-let curLv='N5', quizList=[], quizIdx=0;
+let curLv='N5', batch=[], batchIdx=0;
 
-function renderLvPick(){
-  document.getElementById('lvpick').innerHTML=LEVELS.map(l=>
-    `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();loadQuiz()">${l}</button>`).join('');
+// 安全解析可能被截断的 JSON 数组
+function safeParseArray(s){
+  if(!s)return[];
+  try{return JSON.parse(s)}catch(e){}
+  // 尝试截取到最后一个完整的 } 再补上 ]
+  try{
+    const last=s.lastIndexOf('}');
+    if(last>0){return JSON.parse(s.slice(0,last+1)+']')}
+  }catch(e){}
+  return[];
 }
 
-async function loadQuiz(){
+// 题库存取（按级别存在本地）
+function getBank(lv){return (DB.k.bank||{})[lv]||[]}
+function saveBank(lv,items){
+  const bank=DB.k.bank||{};
+  const cur=bank[lv]||[];
+  const map={};
+  cur.forEach(q=>map[q.w]=q);
+  // 新题去重 + 不一致则更新（用新的覆盖同词旧题）
+  items.forEach(q=>{ if(q&&q.w)map[q.w]=q });
+  bank[lv]=Object.values(map);
+  DB.set({bank});
+}
+
+function renderLvPick(){
+  document.getElementById('lvpick').innerHTML=LEVELS.map(l=>{
+    const n=getBank(l).length;
+    return `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();startQuiz()">${l}${n?`<br><small style="font-size:9px;opacity:.7">${n}题</small>`:''}</button>`;
+  }).join('');
+}
+
+// 开始做题：优先从本地题库随机抽，不够再调 Gemini
+async function startQuiz(){
+  const bank=getBank(curLv);
+  if(bank.length>=2){
+    batch=shuffle(bank).slice(0,2);
+    batchIdx=0;showQuiz();
+  }else{
+    await fetchBatch();
+  }
+}
+
+// 向 Gemini 要一批新题（2题），存进本地库
+async function fetchBatch(){
   const area=document.getElementById('quizArea');
-  area.innerHTML=`<div class="empty-box"><div class="face">🐱📚</div>小猫正在出 ${curLv} 的题…<br><small>稍等一下</small></div>`;
+  area.innerHTML=`<div class="empty-box"><div class="face">🐱📚</div>小猫正在出 ${curLv} 的新题…<br><small>稍等一下</small></div>`;
   try{
     const res=await fetch(API,{
       method:"POST",headers:{"Content-Type":"application/json"},
@@ -530,43 +569,49 @@ async function loadQuiz(){
     const data=await res.json();
     if(!res.ok||data.error)throw new Error(data.error||"出题失败");
     let list=data.result;
-    if(list&&list.raw)list=JSON.parse(list.raw); // 兜底
-    if(!Array.isArray(list)||!list.length)throw new Error("题目格式异常");
-    // 过滤合法题目
-    quizList=list.filter(q=>q.w&&q.opts&&q.opts.length===4&&q.answer);
-    if(!quizList.length)throw new Error("没有可用题目");
-    quizIdx=0;
+    if(list&&!Array.isArray(list)&&list.raw)list=safeParseArray(list.raw);
+    if(typeof list==='string')list=safeParseArray(list);
+    if(!Array.isArray(list))throw new Error("题目格式异常");
+    const valid=list.filter(q=>q&&q.w&&Array.isArray(q.opts)&&q.opts.length===4&&q.answer&&q.opts.includes(q.answer))
+                    .map(q=>({w:q.w,k:q.k||'',answer:q.answer,opts:q.opts,lv:curLv}));
+    if(!valid.length)throw new Error("没拿到有效题目，再试一次");
+    saveBank(curLv,valid);   // 存起来，去重/更新
+    renderLvPick();          // 刷新级别上的题数
+    batch=valid;batchIdx=0;
     showQuiz();
   }catch(e){
-    area.innerHTML=`<div class="empty-box"><div class="face">🐱💦</div>出题失败了<br><small>${escapeHtml(e.message||'请重试')}</small></div>
-      <button class="quiz-next" style="display:block" onclick="loadQuiz()">再试一次 🔄</button>`;
+    area.innerHTML=`<div class="empty-box"><div class="face">🐱💦</div>出题失败<br><small>${escapeHtml(e.message||'请重试')}</small></div>
+      <button class="quiz-next" style="display:block" onclick="fetchBatch()">再试一次 🔄</button>`;
   }
 }
 
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+
 function showQuiz(){
-  const q=quizList[quizIdx];
+  const q=batch[batchIdx];
   if(!q){
-    // 一组做完了
+    // 这批2题做完 → 给"下一批"
     document.getElementById('quizArea').innerHTML=`
-      <div class="empty-box"><div class="face">😺🎉</div>这组 ${curLv} 做完啦！<br><small>继续来一组？</small></div>
-      <button class="quiz-next" style="display:block" onclick="loadQuiz()">再来 5 题 →</button>`;
+      <div class="empty-box"><div class="face">😺✨</div>这两题做完啦！<br><small>继续下一批？</small></div>
+      <button class="quiz-next" style="display:block" onclick="startQuiz()">下一批 →</button>
+      <button class="quiz-next" style="display:block;background:var(--pink);margin-top:8px" onclick="fetchBatch()">出全新的题 🌱</button>`;
     return;
   }
-  const opts=[...q.opts].sort(()=>Math.random()-.5);
+  const opts=shuffle(q.opts);
   document.getElementById('quizArea').innerHTML=`
-    <div class="quiz-q">第 ${quizIdx+1}/${quizList.length} 题 · 这个词是什么意思？</div>
+    <div class="quiz-q">第 ${batchIdx+1}/${batch.length} 题 · 这个词是什么意思？</div>
     <div class="quiz-w">${q.w}</div>
     <div class="quiz-kana">${q.k||''}</div>
     <div class="opts" id="opts">
       ${opts.map(o=>`<button onclick="answerQuiz(this,${JSON.stringify(o).replace(/"/g,'&quot;')})">${o}</button>`).join('')}
     </div>
-    <button class="quiz-next" id="nextBtn" onclick="quizIdx++;showQuiz()">下一题 →</button>
+    <button class="quiz-next" id="nextBtn" onclick="batchIdx++;showQuiz()">下一题 →</button>
     <div class="quiz-score" id="qscore"></div>`;
   updateScore();
 }
 
 function answerQuiz(btn,choice){
-  const q=quizList[quizIdx];
+  const q=batch[batchIdx];
   const opts=document.getElementById('opts');
   [...opts.children].forEach(b=>b.disabled=true);
   const {qRight=0,qTotal=0}=DB.k;
@@ -578,9 +623,7 @@ function answerQuiz(btn,choice){
     btn.classList.add('wrong');
     [...opts.children].forEach(b=>{if(b.textContent===q.answer)b.classList.add('right')});
     DB.set({qTotal:qTotal+1});
-    // 存进错题本（转成错题本用的结构）
-    addWrong({w:q.w,k:q.k||'',m:q.answer,lv:q.lv||curLv,
-      ex:[{jp:'',kana:'',cn:''}]});
+    addWrong({w:q.w,k:q.k||'',m:q.answer,lv:q.lv||curLv,ex:[{jp:'',kana:'',cn:''}]});
     toast('记到错题本啦📕');
   }
   document.getElementById('nextBtn').style.display='block';
