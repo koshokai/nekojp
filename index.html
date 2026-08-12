@@ -510,51 +510,83 @@ function cardHtml(w){
 }
 function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-/* ============ 出题 ============ */
+/* ============ 出题（在线，Gemini生成）============ */
 const LEVELS=['N5','N4','N3','N2','N1'];
-let curLv='N5',curQ=null;
+let curLv='N5', quizList=[], quizIdx=0;
+
 function renderLvPick(){
   document.getElementById('lvpick').innerHTML=LEVELS.map(l=>
-    `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();newQuiz()">${l}</button>`).join('');
+    `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();loadQuiz()">${l}</button>`).join('');
 }
-function newQuiz(){
-  const pool=WORDS.filter(w=>w.lv===curLv);
-  if(pool.length<4){document.getElementById('quizArea').innerHTML='<div class="hint">这个级别的题库还在补充中～</div>';return}
-  const q=pool[Math.floor(Math.random()*pool.length)];
-  const opts=[q.m];
-  const others=WORDS.filter(w=>w.m!==q.m);
-  while(opts.length<4){const o=others[Math.floor(Math.random()*others.length)].m;if(!opts.includes(o))opts.push(o)}
-  opts.sort(()=>Math.random()-.5);
-  curQ=q;
+
+async function loadQuiz(){
+  const area=document.getElementById('quizArea');
+  area.innerHTML=`<div class="empty-box"><div class="face">🐱📚</div>小猫正在出 ${curLv} 的题…<br><small>稍等一下</small></div>`;
+  try{
+    const res=await fetch(API,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:"quiz",text:curLv})
+    });
+    const data=await res.json();
+    if(!res.ok||data.error)throw new Error(data.error||"出题失败");
+    let list=data.result;
+    if(list&&list.raw)list=JSON.parse(list.raw); // 兜底
+    if(!Array.isArray(list)||!list.length)throw new Error("题目格式异常");
+    // 过滤合法题目
+    quizList=list.filter(q=>q.w&&q.opts&&q.opts.length===4&&q.answer);
+    if(!quizList.length)throw new Error("没有可用题目");
+    quizIdx=0;
+    showQuiz();
+  }catch(e){
+    area.innerHTML=`<div class="empty-box"><div class="face">🐱💦</div>出题失败了<br><small>${escapeHtml(e.message||'请重试')}</small></div>
+      <button class="quiz-next" style="display:block" onclick="loadQuiz()">再试一次 🔄</button>`;
+  }
+}
+
+function showQuiz(){
+  const q=quizList[quizIdx];
+  if(!q){
+    // 一组做完了
+    document.getElementById('quizArea').innerHTML=`
+      <div class="empty-box"><div class="face">😺🎉</div>这组 ${curLv} 做完啦！<br><small>继续来一组？</small></div>
+      <button class="quiz-next" style="display:block" onclick="loadQuiz()">再来 5 题 →</button>`;
+    return;
+  }
+  const opts=[...q.opts].sort(()=>Math.random()-.5);
   document.getElementById('quizArea').innerHTML=`
-    <div class="quiz-q">下面这个词是什么意思？</div>
+    <div class="quiz-q">第 ${quizIdx+1}/${quizList.length} 题 · 这个词是什么意思？</div>
     <div class="quiz-w">${q.w}</div>
-    <div class="quiz-kana">${q.k}</div>
+    <div class="quiz-kana">${q.k||''}</div>
     <div class="opts" id="opts">
-      ${opts.map(o=>`<button onclick="answer(this,'${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}
+      ${opts.map(o=>`<button onclick="answerQuiz(this,${JSON.stringify(o).replace(/"/g,'&quot;')})">${o}</button>`).join('')}
     </div>
-    <button class="quiz-next" id="nextBtn" onclick="newQuiz()">下一题 →</button>
+    <button class="quiz-next" id="nextBtn" onclick="quizIdx++;showQuiz()">下一题 →</button>
     <div class="quiz-score" id="qscore"></div>`;
   updateScore();
 }
-function answer(btn,choice){
+
+function answerQuiz(btn,choice){
+  const q=quizList[quizIdx];
   const opts=document.getElementById('opts');
   [...opts.children].forEach(b=>b.disabled=true);
   const {qRight=0,qTotal=0}=DB.k;
-  if(choice===curQ.m){
+  if(choice===q.answer){
     btn.classList.add('right');
     DB.set({qRight:qRight+1,qTotal:qTotal+1});
     toast('答对啦！🎉');
   }else{
     btn.classList.add('wrong');
-    [...opts.children].forEach(b=>{if(b.textContent===curQ.m)b.classList.add('right')});
+    [...opts.children].forEach(b=>{if(b.textContent===q.answer)b.classList.add('right')});
     DB.set({qTotal:qTotal+1});
-    addWrong(curQ);
+    // 存进错题本（转成错题本用的结构）
+    addWrong({w:q.w,k:q.k||'',m:q.answer,lv:q.lv||curLv,
+      ex:[{jp:'',kana:'',cn:''}]});
     toast('记到错题本啦📕');
   }
   document.getElementById('nextBtn').style.display='block';
   updateScore();
 }
+
 function updateScore(){
   const {qRight=0,qTotal=0}=DB.k;
   const el=document.getElementById('qscore');
@@ -608,7 +640,7 @@ function toggleRemind(){
 /* ============ 初始化 ============ */
 refreshStreak();
 renderLvPick();
-newQuiz();
+document.getElementById('quizArea').innerHTML='<div class="hint">选一个级别，小猫给你出 5 道题 🐾</div>';
 showTidbit();
 if(DB.k.remind)document.getElementById('remindToggle').classList.add('on');
 
