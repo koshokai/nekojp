@@ -97,6 +97,23 @@ main{padding:16px}
 .lvpick button{flex:1;min-width:56px;background:var(--pink-bg);border:2px solid var(--line);
   border-radius:14px;padding:10px 0;font-size:14px;font-weight:800;color:var(--ink-soft);cursor:pointer;font-family:var(--sans)}
 .lvpick button.sel{background:var(--pink);color:#fff;border-color:var(--pink)}
+/* 题型选择 */
+.typepick{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.typepick button{background:var(--pink-bg);border:2px solid var(--line);border-radius:12px;
+  padding:8px 12px;font-size:12px;font-weight:700;color:var(--ink-soft);cursor:pointer;font-family:var(--sans)}
+.typepick button.sel{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
+/* 排序题 */
+.order-blocks{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0;min-height:50px;
+  padding:12px;background:var(--pink-bg);border-radius:14px;border:2px dashed var(--line)}
+.order-slot{min-height:44px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:12px;background:#fff;border-radius:14px;border:2px solid var(--pink);margin-bottom:12px}
+.order-slot:empty::before{content:'点下面的词块，按顺序排这里';color:var(--ink-soft);font-size:12px}
+.blk{background:#fff;border:2px solid var(--pink);border-radius:12px;padding:9px 14px;
+  font-size:15px;font-weight:600;cursor:pointer;transition:.12s;font-family:var(--sans)}
+.blk:active{transform:scale(.95)}
+.order-slot .blk{background:var(--pink);color:#fff;border-color:var(--pink)}
+.quiz-tip{background:#FFF9E8;border-radius:12px;padding:11px 13px;margin-top:12px;
+  font-size:13px;line-height:1.6;color:#8a6d2f;border:1px dashed var(--yellow)}
 .quiz-q{font-size:15px;color:var(--ink-soft);margin-bottom:6px;font-weight:600}
 .quiz-w{font-size:30px;font-weight:800;text-align:center;margin:10px 0 6px}
 .quiz-kana{text-align:center;color:var(--pink-deep);font-weight:700;margin-bottom:18px}
@@ -224,6 +241,7 @@ nav button .nm{font-size:10px;font-weight:700}
       <div class="card">
         <h3>✏️ 按阶段做题</h3>
         <div class="lvpick" id="lvpick"></div>
+        <div class="typepick" id="typepick"></div>
         <div id="quizArea"></div>
       </div>
     </div>
@@ -510,122 +528,170 @@ function cardHtml(w){
 }
 function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-/* ============ 出题（本地题库 + Gemini分批补充）============ */
+/* ============ 出题（5种题型 · 本地题库+Gemini分批）============ */
 const LEVELS=['N5','N4','N3','N2','N1'];
-let curLv='N5', batch=[], batchIdx=0;
+const TYPES=[
+  {id:'mean',nm:'词义'},{id:'read',nm:'读音'},{id:'syn',nm:'近义'},
+  {id:'grammar',nm:'语法'},{id:'order',nm:'排序'}
+];
+let curLv='N5', curType='mean', batch=[], batchIdx=0;
 
-// 安全解析可能被截断的 JSON 数组
 function safeParseArray(s){
   if(!s)return[];
   try{return JSON.parse(s)}catch(e){}
-  // 尝试截取到最后一个完整的 } 再补上 ]
-  try{
-    const last=s.lastIndexOf('}');
-    if(last>0){return JSON.parse(s.slice(0,last+1)+']')}
-  }catch(e){}
+  try{const last=s.lastIndexOf('}');if(last>0)return JSON.parse(s.slice(0,last+1)+']')}catch(e){}
   return[];
 }
 
-// 题库存取（按级别存在本地）
-function getBank(lv){return (DB.k.bank||{})[lv]||[]}
-function saveBank(lv,items){
+// 题库按 级别+题型 分桶
+function bankKey(){return curLv+'_'+curType}
+function getBank(k){return (DB.k.bank||{})[k]||[]}
+function saveBank(k,items){
   const bank=DB.k.bank||{};
-  const cur=bank[lv]||[];
+  const cur=bank[k]||[];
   const map={};
-  cur.forEach(q=>map[q.w]=q);
-  // 新题去重 + 不一致则更新（用新的覆盖同词旧题）
-  items.forEach(q=>{ if(q&&q.w)map[q.w]=q });
-  bank[lv]=Object.values(map);
+  cur.forEach(q=>map[q.q]=q);
+  items.forEach(q=>{if(q&&q.q)map[q.q]=q});
+  bank[k]=Object.values(map);
   DB.set({bank});
 }
 
 function renderLvPick(){
-  document.getElementById('lvpick').innerHTML=LEVELS.map(l=>{
-    const n=getBank(l).length;
-    return `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();startQuiz()">${l}${n?`<br><small style="font-size:9px;opacity:.7">${n}题</small>`:''}</button>`;
-  }).join('');
+  document.getElementById('lvpick').innerHTML=LEVELS.map(l=>
+    `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();resetQuizHint()">${l}</button>`).join('');
+}
+function renderTypePick(){
+  document.getElementById('typepick').innerHTML=TYPES.map(t=>
+    `<button class="${t.id===curType?'sel':''}" onclick="curType='${t.id}';renderTypePick();startQuiz()">${t.nm}</button>`).join('');
+}
+function resetQuizHint(){
+  document.getElementById('quizArea').innerHTML='<div class="hint">选级别和题型，小猫给你出题 🐾</div>';
 }
 
-// 开始做题：优先从本地题库随机抽，不够再调 Gemini
 async function startQuiz(){
-  const bank=getBank(curLv);
-  if(bank.length>=2){
-    batch=shuffle(bank).slice(0,2);
-    batchIdx=0;showQuiz();
-  }else{
-    await fetchBatch();
-  }
+  const bank=getBank(bankKey());
+  if(bank.length>=2){batch=shuffle(bank).slice(0,2);batchIdx=0;showQuiz();}
+  else{await fetchBatch();}
 }
 
-// 向 Gemini 要一批新题（2题），存进本地库
 async function fetchBatch(){
   const area=document.getElementById('quizArea');
-  area.innerHTML=`<div class="empty-box"><div class="face">🐱📚</div>小猫正在出 ${curLv} 的新题…<br><small>稍等一下</small></div>`;
+  area.innerHTML=`<div class="empty-box"><div class="face">🐱📚</div>小猫在出 ${curLv} 的题…<br><small>稍等一下</small></div>`;
   try{
-    const res=await fetch(API,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({mode:"quiz",text:curLv})
-    });
+    const res=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:"quiz",text:curLv+'|'+curType})});
     const data=await res.json();
     if(!res.ok||data.error)throw new Error(data.error||"出题失败");
     let list=data.result;
     if(list&&!Array.isArray(list)&&list.raw)list=safeParseArray(list.raw);
     if(typeof list==='string')list=safeParseArray(list);
     if(!Array.isArray(list))throw new Error("题目格式异常");
-    const valid=list.filter(q=>q&&q.w&&Array.isArray(q.opts)&&q.opts.length===4&&q.answer&&q.opts.includes(q.answer))
-                    .map(q=>({w:q.w,k:q.k||'',answer:q.answer,opts:q.opts,lv:curLv}));
+    const valid=list.filter(q=>validQ(q)).map(q=>({...q,lv:curLv,type:curType}));
     if(!valid.length)throw new Error("没拿到有效题目，再试一次");
-    saveBank(curLv,valid);   // 存起来，去重/更新
-    renderLvPick();          // 刷新级别上的题数
-    batch=valid;batchIdx=0;
-    showQuiz();
+    saveBank(bankKey(),valid);renderTypePick();
+    batch=valid;batchIdx=0;showQuiz();
   }catch(e){
     area.innerHTML=`<div class="empty-box"><div class="face">🐱💦</div>出题失败<br><small>${escapeHtml(e.message||'请重试')}</small></div>
       <button class="quiz-next" style="display:block" onclick="fetchBatch()">再试一次 🔄</button>`;
   }
 }
-
+function validQ(q){
+  if(!q||!q.q)return false;
+  if(q.type==='order')return Array.isArray(q.blocks)&&Array.isArray(q.answer)&&q.blocks.length>=2;
+  return Array.isArray(q.opts)&&q.opts.length===4&&q.answer&&q.opts.includes(q.answer);
+}
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
 
 function showQuiz(){
   const q=batch[batchIdx];
   if(!q){
-    // 这批2题做完 → 给"下一批"
     document.getElementById('quizArea').innerHTML=`
-      <div class="empty-box"><div class="face">😺✨</div>这两题做完啦！<br><small>继续下一批？</small></div>
+      <div class="empty-box"><div class="face">😺✨</div>这批做完啦！</div>
       <button class="quiz-next" style="display:block" onclick="startQuiz()">下一批 →</button>
       <button class="quiz-next" style="display:block;background:var(--pink);margin-top:8px" onclick="fetchBatch()">出全新的题 🌱</button>`;
     return;
   }
+  if(q.type==='order')return showOrderQuiz(q);
+  // 选择类
   const opts=shuffle(q.opts);
   document.getElementById('quizArea').innerHTML=`
-    <div class="quiz-q">第 ${batchIdx+1}/${batch.length} 题 · 这个词是什么意思？</div>
-    <div class="quiz-w">${q.w}</div>
-    <div class="quiz-kana">${q.k||''}</div>
+    <div class="quiz-q">第 ${batchIdx+1}/${batch.length} 题 · ${typeLabel(q.type)}</div>
+    <div class="quiz-w" style="font-size:${q.q.length>10?'20px':'28px'}">${q.q}</div>
+    ${q.k?`<div class="quiz-kana">${q.k}</div>`:''}
     <div class="opts" id="opts">
       ${opts.map(o=>`<button onclick="answerQuiz(this,${JSON.stringify(o).replace(/"/g,'&quot;')})">${o}</button>`).join('')}
     </div>
+    <div class="quiz-tip" id="tip" style="display:none"></div>
     <button class="quiz-next" id="nextBtn" onclick="batchIdx++;showQuiz()">下一题 →</button>
     <div class="quiz-score" id="qscore"></div>`;
   updateScore();
 }
+function typeLabel(t){return ({mean:'选中文意思',read:'选正确读音',syn:'选近义词',grammar:'选正确语法',order:'句子排序'})[t]||''}
 
 function answerQuiz(btn,choice){
   const q=batch[batchIdx];
   const opts=document.getElementById('opts');
   [...opts.children].forEach(b=>b.disabled=true);
   const {qRight=0,qTotal=0}=DB.k;
-  if(choice===q.answer){
-    btn.classList.add('right');
-    DB.set({qRight:qRight+1,qTotal:qTotal+1});
-    toast('答对啦！🎉');
-  }else{
+  const right=choice===q.answer;
+  if(right){btn.classList.add('right');DB.set({qRight:qRight+1,qTotal:qTotal+1});toast('答对啦！🎉');}
+  else{
     btn.classList.add('wrong');
     [...opts.children].forEach(b=>{if(b.textContent===q.answer)b.classList.add('right')});
     DB.set({qTotal:qTotal+1});
-    addWrong({w:q.w,k:q.k||'',m:q.answer,lv:q.lv||curLv,ex:[{jp:'',kana:'',cn:''}]});
+    addWrong({w:q.q,k:q.k||'',m:q.answer,lv:q.lv||curLv,ex:[{jp:q.tip||'',kana:'',cn:''}]});
     toast('记到错题本啦📕');
   }
+  if(q.tip){const t=document.getElementById('tip');t.style.display='block';t.innerHTML='💡 '+q.tip;}
+  document.getElementById('nextBtn').style.display='block';
+  updateScore();
+}
+
+// 排序题
+let orderPicked=[];
+function showOrderQuiz(q){
+  orderPicked=[];
+  document.getElementById('quizArea').innerHTML=`
+    <div class="quiz-q">第 ${batchIdx+1}/${batch.length} 题 · 句子排序</div>
+    <div class="order-slot" id="slot"></div>
+    <div class="order-blocks" id="blocks">
+      ${shuffle(q.blocks).map(b=>`<button class="blk" onclick="pickBlock(this,${JSON.stringify(b).replace(/"/g,'&quot;')})">${b}</button>`).join('')}
+    </div>
+    <button class="quiz-next" id="checkBtn" style="display:block;background:var(--pink-deep)" onclick="checkOrder()">检查答案</button>
+    <div class="quiz-tip" id="tip" style="display:none"></div>
+    <button class="quiz-next" id="nextBtn" onclick="batchIdx++;showQuiz()">下一题 →</button>
+    <div class="quiz-score" id="qscore"></div>`;
+  updateScore();
+}
+function pickBlock(btn,text){
+  if(btn.dataset.used)return;
+  btn.dataset.used=1;btn.style.opacity='.3';btn.style.pointerEvents='none';
+  orderPicked.push(text);
+  const slot=document.getElementById('slot');
+  const b=document.createElement('button');b.className='blk';b.textContent=text;
+  b.onclick=()=>{ // 点已排的可撤回
+    const idx=[...slot.children].indexOf(b);
+    slot.removeChild(b);
+    if(idx>-1)orderPicked.splice(idx,1);
+    btn.dataset.used='';btn.style.opacity='1';btn.style.pointerEvents='auto';
+  };
+  slot.appendChild(b);
+}
+function checkOrder(){
+  const q=batch[batchIdx];
+  const {qRight=0,qTotal=0}=DB.k;
+  const right=JSON.stringify(orderPicked)===JSON.stringify(q.answer);
+  const slot=document.getElementById('slot');
+  if(right){slot.style.borderColor='var(--ok)';DB.set({qRight:qRight+1,qTotal:qTotal+1});toast('排对啦！🎉');}
+  else{
+    slot.style.borderColor='var(--bad)';DB.set({qTotal:qTotal+1});
+    const t=document.getElementById('tip');t.style.display='block';
+    t.innerHTML='正确顺序：'+q.answer.join(' ')+(q.tip?'<br>💡 '+q.tip:'');
+    addWrong({w:q.answer.join(''),k:'',m:q.tip||'句子排序',lv:q.lv||curLv,ex:[{jp:q.answer.join(' '),kana:'',cn:''}]});
+    toast('记到错题本啦📕');
+  }
+  document.getElementById('checkBtn').style.display='none';
+  if(right&&q.tip){const t=document.getElementById('tip');t.style.display='block';t.innerHTML='💡 '+q.tip;}
   document.getElementById('nextBtn').style.display='block';
   updateScore();
 }
@@ -683,7 +749,8 @@ function toggleRemind(){
 /* ============ 初始化 ============ */
 refreshStreak();
 renderLvPick();
-document.getElementById('quizArea').innerHTML='<div class="hint">选一个级别，小猫给你出 5 道题 🐾</div>';
+renderTypePick();
+document.getElementById('quizArea').innerHTML='<div class="hint">选级别和题型，小猫给你出题 🐾</div>';
 showTidbit();
 if(DB.k.remind)document.getElementById('remindToggle').classList.add('on');
 
