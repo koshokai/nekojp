@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FF9EC4">
+<title>ねこ日本語 · 和小猫一起学日语</title>
+<style>
+:root{
+  --pink:#FF9EC4; --pink-deep:#FF6FA5; --pink-soft:#FFE3EE; --pink-bg:#FFF5F9;
+  --cream:#FFFDFB; --ink:#4A3540; --ink-soft:#9B7E8C; --line:#FCD5E4;
+  --mint:#B8E6D5; --yellow:#FFE59E; --lav:#D8CBF0;
+  --ok:#5BC48A; --bad:#FF7E8A; --white:#fff;
+  --shadow:0 6px 22px rgba(255,111,165,.15);
+  --round:22px;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Maru Gothic Pro','Microsoft YaHei',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--pink-bg);color:var(--ink);font-family:var(--sans);
+  padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+.wrap{max-width:480px;margin:0 auto;min-height:100%}
+
+/* 顶部小猫 */
+header{padding:24px 20px 12px;text-align:center;position:relative}
+.cat{width:96px;height:96px;margin:0 auto;position:relative;animation:bob 3s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.cat svg{width:100%;height:100%;filter:drop-shadow(0 6px 10px rgba(255,111,165,.25))}
+.hello{font-size:20px;font-weight:800;margin-top:8px;color:var(--pink-deep);letter-spacing:.02em}
+.hello small{display:block;font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:3px;letter-spacing:.06em}
+
+/* 打卡条 */
+.streak{background:var(--white);margin:14px 16px 0;border-radius:var(--round);
+  box-shadow:var(--shadow);padding:16px 18px;display:flex;align-items:center;gap:14px}
+.streak .flame{font-size:34px}
+.streak .txt{flex:1}
+.streak .num{font-size:24px;font-weight:800;color:var(--pink-deep)}
+.streak .num span{font-size:13px;color:var(--ink-soft);font-weight:600}
+.streak .lbl{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.streak button{background:var(--pink);color:#fff;border:none;border-radius:16px;
+  padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--sans);
+  box-shadow:0 4px 12px rgba(255,111,165,.3);transition:transform .12s}
+.streak button:active{transform:scale(.94)}
+.streak button.done{background:var(--mint);color:#2f7a5a;box-shadow:none}
+
+/* 内容区 */
+main{padding:16px}
+.panel{display:none;animation:fade .3s}
+.panel.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.card{background:var(--white);border-radius:var(--round);box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
+.card h3{font-size:15px;font-weight:800;color:var(--pink-deep);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* 查词 */
+.search{display:flex;gap:8px;margin-bottom:6px}
+.search input{flex:1;background:var(--pink-bg);border:2px solid var(--line);border-radius:16px;
+  padding:13px 16px;font-size:16px;color:var(--ink);font-family:var(--sans)}
+.search input:focus{outline:none;border-color:var(--pink)}
+.search button{background:var(--pink-deep);color:#fff;border:none;border-radius:16px;padding:0 18px;
+  font-size:15px;font-weight:800;cursor:pointer;font-family:var(--sans)}
+.result{margin-top:12px}
+.wordcard{background:var(--pink-bg);border-radius:18px;padding:16px;margin-bottom:10px;border:2px solid var(--line)}
+.wordcard .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.wordcard .jp{font-size:26px;font-weight:800;color:var(--ink)}
+.wordcard .kana{font-size:14px;color:var(--pink-deep);font-weight:700}
+.wordcard .lv{margin-left:auto;background:var(--pink);color:#fff;font-size:11px;font-weight:800;
+  padding:3px 10px;border-radius:99px}
+.wordcard .mean{font-size:16px;margin:8px 0;font-weight:600}
+.wordcard .ex{background:var(--white);border-radius:12px;padding:11px 13px;margin-top:8px;border-left:4px solid var(--pink)}
+.wordcard .ex .exjp{font-size:15px;font-weight:600;line-height:1.6}
+.wordcard .ex .exkana{font-size:11px;color:var(--ink-soft);margin:3px 0}
+.wordcard .ex .excn{font-size:13px;color:var(--pink-deep);margin-top:3px}
+/* 场景说明 */
+.wordcard .scene{background:#FFF9E8;border-radius:12px;padding:11px 13px;margin:10px 0;
+  font-size:13px;line-height:1.7;color:#8a6d2f;border:1px dashed var(--yellow)}
+.wordcard .scene b{color:#c99b1e}
+/* 小标题 */
+.wordcard .sub{font-size:12px;font-weight:800;color:var(--pink-deep);margin:14px 0 6px;
+  display:flex;align-items:center;gap:5px}
+/* 对话气泡 */
+.dialog{background:#F6F1FB;border-radius:14px;padding:12px;border:1px solid var(--lav)}
+.dialog .place{font-size:12px;color:#7a5fb0;font-weight:700;margin-bottom:10px;text-align:center}
+.bubble{margin-bottom:10px;max-width:88%}
+.bubble.right{margin-left:auto;text-align:right}
+.bubble .who{font-size:10px;color:var(--ink-soft);margin-bottom:2px;font-weight:700}
+.bubble .say{display:inline-block;background:#fff;border-radius:14px;padding:8px 12px;
+  font-size:14px;font-weight:600;line-height:1.5;text-align:left;box-shadow:0 2px 6px rgba(120,90,180,.1)}
+.bubble.right .say{background:var(--pink);color:#fff}
+.bubble .bkana{font-size:10px;color:var(--ink-soft);margin-top:3px}
+.bubble .bcn{font-size:12px;color:#7a5fb0;margin-top:2px}
+.bubble.right .bcn{color:var(--pink-deep)}
+.hint{color:var(--ink-soft);font-size:13px;text-align:center;padding:10px}
+
+/* 出题 */
+.lvpick{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+.lvpick button{flex:1;min-width:56px;background:var(--pink-bg);border:2px solid var(--line);
+  border-radius:14px;padding:10px 0;font-size:14px;font-weight:800;color:var(--ink-soft);cursor:pointer;font-family:var(--sans)}
+.lvpick button.sel{background:var(--pink);color:#fff;border-color:var(--pink)}
+.quiz-q{font-size:15px;color:var(--ink-soft);margin-bottom:6px;font-weight:600}
+.quiz-w{font-size:30px;font-weight:800;text-align:center;margin:10px 0 6px}
+.quiz-kana{text-align:center;color:var(--pink-deep);font-weight:700;margin-bottom:18px}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opts button{background:var(--pink-bg);border:2px solid var(--line);border-radius:16px;padding:14px;
+  font-size:16px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;font-family:var(--sans);transition:.15s}
+.opts button:hover{border-color:var(--pink)}
+.opts button.right{background:#E5F7EE;border-color:var(--ok);color:#2f7a5a}
+.opts button.wrong{background:#FFE9EB;border-color:var(--bad);color:#c0434f}
+.quiz-next{width:100%;background:var(--pink-deep);color:#fff;border:none;border-radius:16px;padding:14px;
+  font-size:16px;font-weight:800;margin-top:14px;cursor:pointer;font-family:var(--sans);display:none}
+.quiz-score{text-align:center;color:var(--ink-soft);font-size:13px;margin-top:10px}
+
+/* 错题本 */
+.wrong-item{background:var(--pink-bg);border-radius:16px;padding:14px;margin-bottom:10px;border-left:4px solid var(--bad)}
+.wrong-item .jp{font-size:20px;font-weight:800}
+.wrong-item .mean{font-size:14px;color:var(--pink-deep);margin-top:2px;font-weight:600}
+.wrong-item .ex{font-size:13px;color:var(--ink-soft);margin-top:6px;line-height:1.5}
+.empty-box{text-align:center;padding:30px 10px;color:var(--ink-soft)}
+.empty-box .face{font-size:40px;margin-bottom:8px}
+
+/* 段子 */
+.tidbit{background:linear-gradient(135deg,#FFF0F6,#FFF9E8);border-radius:18px;padding:18px;border:2px dashed var(--pink)}
+.tidbit .jp{font-size:16px;font-weight:700;line-height:1.7}
+.tidbit .cn{font-size:14px;color:var(--pink-deep);margin-top:10px;line-height:1.6}
+.tidbit .refresh{margin-top:14px;background:var(--pink);color:#fff;border:none;border-radius:14px;
+  padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--sans)}
+
+/* 提醒设置 */
+.remind-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.remind-row .lbl{font-size:14px;font-weight:600}
+.toggle{width:52px;height:30px;background:var(--line);border-radius:99px;position:relative;cursor:pointer;transition:.2s;border:none}
+.toggle.on{background:var(--pink-deep)}
+.toggle i{position:absolute;top:3px;left:3px;width:24px;height:24px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 2px 4px rgba(0,0,0,.15)}
+.toggle.on i{left:25px}
+
+/* 底部导航 */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
+  background:var(--white);box-shadow:0 -4px 20px rgba(255,111,165,.12);
+  display:flex;padding:8px 6px calc(8px + env(safe-area-inset-bottom));border-radius:24px 24px 0 0;z-index:30}
+nav button{flex:1;background:none;border:none;padding:6px 0;cursor:pointer;font-family:var(--sans);
+  display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-soft);transition:.15s}
+nav button.on{color:var(--pink-deep)}
+nav button .ic{font-size:21px}
+nav button .nm{font-size:10px;font-weight:700}
+
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:99px;font-size:14px;font-weight:600;
+  transition:.3s;z-index:80;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="cat">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <!-- 耳朵 -->
+        <path d="M22 30 L30 8 L44 26 Z" fill="#FF9EC4"/>
+        <path d="M78 30 L70 8 L56 26 Z" fill="#FF9EC4"/>
+        <path d="M27 26 L31 15 L38 25 Z" fill="#FFC2DA"/>
+        <path d="M73 26 L69 15 L62 25 Z" fill="#FFC2DA"/>
+        <!-- 脸 -->
+        <ellipse cx="50" cy="54" rx="34" ry="30" fill="#FFF0F6" stroke="#FF9EC4" stroke-width="2.5"/>
+        <!-- 蝴蝶结 -->
+        <path d="M62 34 l10 -5 l0 12 z" fill="#FF6FA5"/>
+        <path d="M74 34 l-10 -5 l0 12 z" fill="#FF6FA5"/>
+        <circle cx="68" cy="35" r="3.5" fill="#FFD84D"/>
+        <!-- 眼睛 -->
+        <circle cx="39" cy="52" r="4" fill="#4A3540"/>
+        <circle cx="61" cy="52" r="4" fill="#4A3540"/>
+        <circle cx="40.5" cy="50.5" r="1.3" fill="#fff"/>
+        <circle cx="62.5" cy="50.5" r="1.3" fill="#fff"/>
+        <!-- 鼻 -->
+        <path d="M48 60 h4 l-2 3 z" fill="#FF6FA5"/>
+        <!-- 胡须 -->
+        <line x1="18" y1="54" x2="32" y2="56" stroke="#FFC2DA" stroke-width="2" stroke-linecap="round"/>
+        <line x1="18" y1="61" x2="32" y2="61" stroke="#FFC2DA" stroke-width="2" stroke-linecap="round"/>
+        <line x1="82" y1="54" x2="68" y2="56" stroke="#FFC2DA" stroke-width="2" stroke-linecap="round"/>
+        <line x1="82" y1="61" x2="68" y2="61" stroke="#FFC2DA" stroke-width="2" stroke-linecap="round"/>
+        <!-- 腮红 -->
+        <ellipse cx="32" cy="62" rx="5" ry="3" fill="#FFB3CF" opacity=".7"/>
+        <ellipse cx="68" cy="62" rx="5" ry="3" fill="#FFB3CF" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="hello">ねこ日本語<small>和小猫一起，每天学一点日语</small></div>
+  </header>
+
+  <div class="streak">
+    <div class="flame" id="flame">🔥</div>
+    <div class="txt">
+      <div class="num" id="streakNum">0<span> 天连续打卡</span></div>
+      <div class="lbl" id="streakLbl">今天还没打卡哦，学一点吧～</div>
+    </div>
+    <button id="checkBtn" onclick="checkIn()">打卡</button>
+  </div>
+
+  <main>
+    <!-- 查词 -->
+    <div class="panel on" id="p-search">
+      <div class="card">
+        <h3>🔍 查单词</h3>
+        <div class="search">
+          <input type="text" id="q" placeholder="输入日语、假名或中文…" onkeydown="if(event.key==='Enter')doSearch()">
+          <button onclick="doSearch()">查</button>
+        </div>
+        <div class="result" id="searchResult">
+          <div class="hint">试试搜「食べる」「好き」「努力」或者「喜欢」</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 出题 -->
+    <div class="panel" id="p-quiz">
+      <div class="card">
+        <h3>✏️ 按阶段做题</h3>
+        <div class="lvpick" id="lvpick"></div>
+        <div id="quizArea"></div>
+      </div>
+    </div>
+
+    <!-- 错题本 -->
+    <div class="panel" id="p-wrong">
+      <div class="card">
+        <h3>📕 错题本</h3>
+        <div id="wrongList"></div>
+      </div>
+    </div>
+
+    <!-- 每日段子 -->
+    <div class="panel" id="p-daily">
+      <div class="card">
+        <h3>🍵 今日日本小知识</h3>
+        <div class="tidbit" id="tidbit"></div>
+      </div>
+      <div class="card">
+        <h3>⏰ 学习提醒</h3>
+        <div class="remind-row">
+          <span class="lbl">每天提醒我学习</span>
+          <button class="toggle" id="remindToggle" onclick="toggleRemind()"><i></i></button>
+        </div>
+        <div class="hint" id="remindHint">开启后，会用浏览器通知提醒你（需允许通知权限）</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<nav>
+  <button class="on" data-p="search" onclick="tab('search',this)"><span class="ic">🔍</span><span class="nm">查词</span></button>
+  <button data-p="quiz" onclick="tab('quiz',this)"><span class="ic">✏️</span><span class="nm">做题</span></button>
+  <button data-p="wrong" onclick="tab('wrong',this)"><span class="ic">📕</span><span class="nm">错题本</span></button>
+  <button data-p="daily" onclick="tab('daily',this)"><span class="ic">🍵</span><span class="nm">每日</span></button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// 日语词库 v2：每词 = 释义 + 多例句 + 场景对话 + 使用场景说明（全中日对照）
+// 结构说明：
+//   w 词 / k 假名 / r 罗马音 / m 中文意思 / lv 级别
+//   scene: 什么场景下用（中文说明）
+//   ex: [{jp, kana, cn}]  多个例句
+//   dialog: {place:场景中文, lines:[{who, jp, kana, cn}]}  一段对话
+const WORDS = [
+  {
+    w:"食べる", k:"たべる", r:"taberu", m:"吃", lv:"N5",
+    scene:"最基础的动词之一。吃饭、吃东西、请客吃饭都用它。礼貌说法是「食べます」，敬语是「召し上がる」。",
+    ex:[
+      {jp:"毎朝パンを食べます。", kana:"まいあさパンをたべます。", cn:"每天早上吃面包。"},
+      {jp:"何が食べたいですか。", kana:"なにがたべたいですか。", cn:"你想吃什么？"},
+      {jp:"辛い物はあまり食べません。", kana:"からいものはあまりたべません。", cn:"我不太吃辣的东西。"}
+    ],
+    dialog:{ place:"在餐厅点餐", lines:[
+      {who:"店员", jp:"ご注文はお決まりですか。", kana:"ごちゅうもんはおきまりですか。", cn:"您想好点什么了吗？"},
+      {who:"客人", jp:"ラーメンを食べたいです。", kana:"ラーメンをたべたいです。", cn:"我想吃拉面。"},
+      {who:"店员", jp:"かしこまりました。", kana:"かしこまりました。", cn:"好的，明白了。"}
+    ]}
+  },
+  {
+    w:"好き", k:"すき", r:"suki", m:"喜欢", lv:"N5",
+    scene:"表达喜好。注意日语里「喜欢的东西」用「が」：〜が好きです。表白也常用「好きです」。",
+    ex:[
+      {jp:"私は猫が好きです。", kana:"わたしはねこがすきです。", cn:"我喜欢猫。"},
+      {jp:"どんな音楽が好きですか。", kana:"どんなおんがくがすきですか。", cn:"你喜欢什么样的音乐？"},
+      {jp:"甘い物が大好きです。", kana:"あまいものがだいすきです。", cn:"我最喜欢甜食。"}
+    ],
+    dialog:{ place:"朋友间聊爱好", lines:[
+      {who:"A", jp:"休みの日は何をしますか。", kana:"やすみのひはなにをしますか。", cn:"休息日你都做什么？"},
+      {who:"B", jp:"映画が好きだから、よく見ます。", kana:"えいががすきだから、よくみます。", cn:"我喜欢电影，所以经常看。"},
+      {who:"A", jp:"いいですね。私も好きです。", kana:"いいですね。わたしもすきです。", cn:"不错啊，我也喜欢。"}
+    ]}
+  },
+  {
+    w:"約束", k:"やくそく", r:"yakusoku", m:"约定、约好", lv:"N4",
+    scene:"表示和别人约好的事。「約束する」＝约定，「約束を守る／破る」＝遵守／违背约定。日常和商务都常用。",
+    ex:[
+      {jp:"友達との約束を忘れました。", kana:"ともだちとのやくそくをわすれました。", cn:"忘记了和朋友的约定。"},
+      {jp:"約束は必ず守ります。", kana:"やくそくはかならずまもります。", cn:"约定我一定会遵守。"},
+      {jp:"約束の時間に遅れないで。", kana:"やくそくのじかんにおくれないで。", cn:"别迟到，按约好的时间来。"}
+    ],
+    dialog:{ place:"和朋友定见面时间", lines:[
+      {who:"A", jp:"明日、三時でいい？", kana:"あした、さんじでいい？", cn:"明天三点可以吗？"},
+      {who:"B", jp:"うん、約束ね。遅れないでよ。", kana:"うん、やくそくね。おくれないでよ。", cn:"嗯，说好了哦，别迟到。"},
+      {who:"A", jp:"大丈夫、必ず行くよ。", kana:"だいじょうぶ、かならずいくよ。", cn:"没问题，我一定去。"}
+    ]}
+  },
+  {
+    w:"我慢", k:"がまん", r:"gaman", m:"忍耐、忍受", lv:"N3",
+    scene:"忍住某种欲望、情绪或痛苦。「我慢する」＝忍着。日本文化里很常用，如忍住不买、忍住不哭、忍痛。",
+    ex:[
+      {jp:"痛みを我慢しました。", kana:"いたみをがまんしました。", cn:"忍住了疼痛。"},
+      {jp:"欲しいけど、我慢します。", kana:"ほしいけど、がまんします。", cn:"虽然想要，但还是忍住。"},
+      {jp:"もう我慢できない。", kana:"もうがまんできない。", cn:"我再也忍不住了。"}
+    ],
+    dialog:{ place:"减肥时面对甜点", lines:[
+      {who:"A", jp:"このケーキ、おいしそう…", kana:"このケーキ、おいしそう…", cn:"这蛋糕看起来好好吃…"},
+      {who:"B", jp:"ダイエット中でしょ？我慢、我慢。", kana:"ダイエットちゅうでしょ？がまん、がまん。", cn:"你在减肥吧？忍住，忍住。"},
+      {who:"A", jp:"わかってる、我慢する…", kana:"わかってる、がまんする…", cn:"我知道，我忍…"}
+    ]}
+  },
+  {
+    w:"検討", k:"けんとう", r:"kentou", m:"研究、探讨、考虑", lv:"N2",
+    scene:"商务场合高频词。「検討する」＝仔细考虑、研究。注意：日本人说「検討します」常是委婉拒绝，相当于「我再想想」（往往就是不了）。",
+    ex:[
+      {jp:"その案を検討しています。", kana:"そのあんをけんとうしています。", cn:"正在研究那个方案。"},
+      {jp:"前向きに検討します。", kana:"まえむきにけんとうします。", cn:"我们会积极考虑。"},
+      {jp:"社内で検討させてください。", kana:"しゃないでけんとうさせてください。", cn:"请让我们在公司内部研究一下。"}
+    ],
+    dialog:{ place:"商务谈判", lines:[
+      {who:"甲方", jp:"価格は下げられますか。", kana:"かかくはさげられますか。", cn:"价格能再降一点吗？"},
+      {who:"乙方", jp:"社内で検討させていただきます。", kana:"しゃないでけんとうさせていただきます。", cn:"请允许我们内部研究一下。"},
+      {who:"甲方", jp:"よろしくお願いします。", kana:"よろしくおねがいします。", cn:"那就拜托了。"}
+    ]}
+  },
+  {
+    w:"謙虚", k:"けんきょ", r:"kenkyo", m:"谦虚", lv:"N1",
+    scene:"形容人低调不自大。「謙虚な人」＝谦虚的人。日本社会非常看重谦虚，是很正面的评价。",
+    ex:[
+      {jp:"成功しても謙虚でいたいです。", kana:"せいこうしてもけんきょでいたいです。", cn:"即使成功也想保持谦虚。"},
+      {jp:"彼は謙虚で人気があります。", kana:"かれはけんきょでにんきがあります。", cn:"他很谦虚，很受欢迎。"},
+      {jp:"謙虚な態度が大切です。", kana:"けんきょなたいどがたいせつです。", cn:"谦虚的态度很重要。"}
+    ],
+    dialog:{ place:"称赞同事", lines:[
+      {who:"A", jp:"今回の成功、すごいですね！", kana:"こんかいのせいこう、すごいですね！", cn:"这次的成功，太厉害了！"},
+      {who:"B", jp:"いえいえ、みんなのおかげです。", kana:"いえいえ、みんなのおかげです。", cn:"哪里哪里，多亏了大家。"},
+      {who:"A", jp:"謙虚ですね。尊敬します。", kana:"けんきょですね。そんけいします。", cn:"真谦虚，我很敬佩。"}
+    ]}
+  }
+];
+
+const TIDBITS = [
+  { jp:"日本では、蕎麦を食べる時に音を立てて食べるのがマナーとされています。", cn:"在日本，吃荞麦面时发出声音反而被认为是礼貌。" },
+  { jp:"「いただきます」は食べ物の命に感謝する言葉です。", cn:"「いただきます」是对食物生命表达感谢的话。" },
+  { jp:"日本の自動販売機は約400万台あり、傘やラーメンも売っています。", cn:"日本约有400万台自动售货机，连雨伞和拉面都有卖。" },
+  { jp:"桜が咲く期間はたった一週間ほど。だから花見を大切にします。", cn:"樱花盛开只有约一周，所以日本人格外珍惜赏花。" },
+  { jp:"電車の中では電話をしないのがマナーです。", cn:"在电车里不打电话是基本礼仪。" },
+  { jp:"日本ではチップの習慣がありません。良いサービスは当たり前だからです。", cn:"日本没有小费的习惯，因为好服务被视为理所当然。" }
+];
+
+</script>
+<script>
+/* ============ 存储 ============ */
+const DB={
+  get k(){return JSON.parse(localStorage.getItem('nekojp')||'{}')},
+  set(o){localStorage.setItem('nekojp',JSON.stringify({...this.k,...o}))}
+};
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');
+  clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),1600)}
+
+/* ============ 导航 ============ */
+function tab(p,btn){
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  document.getElementById('p-'+p).classList.add('on');
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  btn.classList.add('on');
+  if(p==='wrong')renderWrong();
+}
+
+/* ============ 打卡 ============ */
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`}
+function refreshStreak(){
+  const {lastCheck,streak=0}=DB.k;
+  document.getElementById('streakNum').innerHTML=`${streak}<span> 天连续打卡</span>`;
+  const done=lastCheck===todayStr();
+  const btn=document.getElementById('checkBtn');
+  if(done){btn.textContent='已打卡';btn.classList.add('done');
+    document.getElementById('streakLbl').textContent='今天完成啦，真棒！明天见～';}
+  else{btn.textContent='打卡';btn.classList.remove('done');
+    document.getElementById('streakLbl').textContent='今天还没打卡哦，学一点吧～';}
+}
+function checkIn(){
+  const {lastCheck,streak=0}=DB.k;
+  if(lastCheck===todayStr()){toast('今天已经打过卡啦🐾');return}
+  const y=new Date(Date.now()-86400000);const yStr=`${y.getFullYear()}-${y.getMonth()+1}-${y.getDate()}`;
+  const ns=(lastCheck===yStr)?streak+1:1;
+  DB.set({lastCheck:todayStr(),streak:ns});
+  refreshStreak();toast(`打卡成功！连续 ${ns} 天 🎉`);
+}
+
+/* ============ 查词 ============ */
+function doSearch(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const box=document.getElementById('searchResult');
+  if(!q){box.innerHTML='<div class="hint">输入点什么再查哦～</div>';return}
+  const hits=WORDS.filter(w=>
+    w.w.toLowerCase().includes(q)||w.k.includes(q)||w.r.includes(q)||w.m.includes(q));
+  if(!hits.length){
+    box.innerHTML=`<div class="empty-box"><div class="face">🐱💭</div>
+      离线词库里还没有「${escapeHtml(q)}」<br><small>接上 Gemini 后就能查任意词啦</small></div>`;
+    return;
+  }
+  box.innerHTML=hits.slice(0,8).map(cardHtml).join('');
+}
+function cardHtml(w){
+  const exHtml=(w.ex||[]).map(e=>`
+    <div class="ex">
+      <div class="exjp">${e.jp}</div>
+      <div class="exkana">${e.kana}</div>
+      <div class="excn">${e.cn}</div>
+    </div>`).join('');
+  let dialogHtml='';
+  if(w.dialog){
+    const lines=w.dialog.lines.map((l,i)=>`
+      <div class="bubble ${i%2?'right':''}">
+        <div class="who">${l.who}</div>
+        <div class="say">${l.jp}</div>
+        <div class="bkana">${l.kana}</div>
+        <div class="bcn">${l.cn}</div>
+      </div>`).join('');
+    dialogHtml=`
+      <div class="sub">💬 场景对话</div>
+      <div class="dialog">
+        <div class="place">📍 ${w.dialog.place}</div>
+        ${lines}
+      </div>`;
+  }
+  return `<div class="wordcard">
+    <div class="top">
+      <span class="jp">${w.w}</span><span class="kana">${w.k}</span>
+      <span class="lv">${w.lv}</span>
+    </div>
+    <div class="mean">${w.m}</div>
+    ${w.scene?`<div class="scene">💡 <b>什么时候用：</b>${w.scene}</div>`:''}
+    <div class="sub">📝 例句</div>
+    ${exHtml}
+    ${dialogHtml}
+  </div>`;
+}
+function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ============ 出题 ============ */
+const LEVELS=['N5','N4','N3','N2','N1'];
+let curLv='N5',curQ=null;
+function renderLvPick(){
+  document.getElementById('lvpick').innerHTML=LEVELS.map(l=>
+    `<button class="${l===curLv?'sel':''}" onclick="curLv='${l}';renderLvPick();newQuiz()">${l}</button>`).join('');
+}
+function newQuiz(){
+  const pool=WORDS.filter(w=>w.lv===curLv);
+  if(pool.length<4){document.getElementById('quizArea').innerHTML='<div class="hint">这个级别的题库还在补充中～</div>';return}
+  const q=pool[Math.floor(Math.random()*pool.length)];
+  const opts=[q.m];
+  const others=WORDS.filter(w=>w.m!==q.m);
+  while(opts.length<4){const o=others[Math.floor(Math.random()*others.length)].m;if(!opts.includes(o))opts.push(o)}
+  opts.sort(()=>Math.random()-.5);
+  curQ=q;
+  document.getElementById('quizArea').innerHTML=`
+    <div class="quiz-q">下面这个词是什么意思？</div>
+    <div class="quiz-w">${q.w}</div>
+    <div class="quiz-kana">${q.k}</div>
+    <div class="opts" id="opts">
+      ${opts.map(o=>`<button onclick="answer(this,'${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}
+    </div>
+    <button class="quiz-next" id="nextBtn" onclick="newQuiz()">下一题 →</button>
+    <div class="quiz-score" id="qscore"></div>`;
+  updateScore();
+}
+function answer(btn,choice){
+  const opts=document.getElementById('opts');
+  [...opts.children].forEach(b=>b.disabled=true);
+  const {qRight=0,qTotal=0}=DB.k;
+  if(choice===curQ.m){
+    btn.classList.add('right');
+    DB.set({qRight:qRight+1,qTotal:qTotal+1});
+    toast('答对啦！🎉');
+  }else{
+    btn.classList.add('wrong');
+    [...opts.children].forEach(b=>{if(b.textContent===curQ.m)b.classList.add('right')});
+    DB.set({qTotal:qTotal+1});
+    addWrong(curQ);
+    toast('记到错题本啦📕');
+  }
+  document.getElementById('nextBtn').style.display='block';
+  updateScore();
+}
+function updateScore(){
+  const {qRight=0,qTotal=0}=DB.k;
+  const el=document.getElementById('qscore');
+  if(el)el.textContent=qTotal?`累计 ${qRight}/${qTotal} 正确`:'';
+}
+
+/* ============ 错题本 ============ */
+function addWrong(w){
+  const wrong=DB.k.wrong||[];
+  if(!wrong.find(x=>x.w===w.w)){wrong.unshift(w);DB.set({wrong})}
+}
+function renderWrong(){
+  const wrong=DB.k.wrong||[];
+  const box=document.getElementById('wrongList');
+  if(!wrong.length){box.innerHTML=`<div class="empty-box"><div class="face">😺✨</div>还没有错题，继续保持！</div>`;return}
+  box.innerHTML=wrong.map((w,i)=>`
+    <div class="wrong-item">
+      <div class="jp">${w.w} <small style="font-size:13px;color:var(--pink-deep)">${w.k}</small></div>
+      <div class="mean">${w.m}</div>
+      <div class="ex">${w.ex&&w.ex[0]?w.ex[0].jp+'<br>'+w.ex[0].cn:''}</div>
+      <button onclick="rmWrong(${i})" style="margin-top:8px;background:var(--mint);border:none;border-radius:12px;padding:7px 14px;font-size:12px;font-weight:700;color:#2f7a5a;cursor:pointer;font-family:inherit">✓ 已掌握</button>
+    </div>`).join('');
+}
+function rmWrong(i){const wrong=DB.k.wrong||[];wrong.splice(i,1);DB.set({wrong});renderWrong();toast('太棒了，又掌握一个！')}
+
+/* ============ 每日段子 ============ */
+function showTidbit(){
+  const t=TIDBITS[Math.floor(Math.random()*TIDBITS.length)];
+  document.getElementById('tidbit').innerHTML=`
+    <div class="jp">${t.jp}</div><div class="cn">${t.cn}</div>
+    <button class="refresh" onclick="showTidbit()">换一条 🔄</button>`;
+}
+
+/* ============ 提醒 ============ */
+function toggleRemind(){
+  const btn=document.getElementById('remindToggle');
+  const on=!btn.classList.contains('on');
+  if(on){
+    if('Notification' in window){
+      Notification.requestPermission().then(p=>{
+        if(p==='granted'){btn.classList.add('on');DB.set({remind:true});
+          document.getElementById('remindHint').textContent='已开启，每天会提醒你来学习～';
+          new Notification('ねこ日本語 🐱',{body:'提醒开启成功！小猫每天等你来学日语～'});
+        }else{toast('需要允许通知权限哦')}
+      });
+    }else{toast('这个浏览器不支持通知')}
+  }else{btn.classList.remove('on');DB.set({remind:false});
+    document.getElementById('remindHint').textContent='开启后，会用浏览器通知提醒你（需允许通知权限）'}
+}
+
+/* ============ 初始化 ============ */
+refreshStreak();
+renderLvPick();
+newQuiz();
+showTidbit();
+if(DB.k.remind)document.getElementById('remindToggle').classList.add('on');
+
+/* PWA service worker */
+if('serviceWorker' in navigator){
+  const sw=`self.addEventListener('install',e=>self.skipWaiting());
+    self.addEventListener('activate',e=>self.clients.claim());
+    self.addEventListener('fetch',e=>{e.respondWith(caches.open('nekojp').then(async c=>{
+      const h=await c.match(e.request);if(h)return h;
+      try{const r=await fetch(e.request);c.put(e.request,r.clone());return r}catch(x){return h||Response.error()}}))});`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'text/javascript'}))).catch(()=>{});
+}
+</script>
+</body>
+</html>
